@@ -75,7 +75,6 @@ class Store(object):
         if "default_context" in kwargs:
             self.__default_context = URIRef(kwargs["default_context"])
 
-        import pdb;pdb.set_trace()
         if reader:
             if reader in __readers__:
                 self.reader = __readers__[reader](*args, **kwargs)

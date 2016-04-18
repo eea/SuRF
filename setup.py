@@ -39,5 +39,7 @@ setup(
     install_requires=[
           'setuptools',
           # -*- Extra requirements: -*-
+          'rdflib >= 2.4.2',
+          'simplejson >= 2.0.9',
     ]
 )
