@@ -21,10 +21,9 @@ setup(
     long_description=DESCRIPTION,
     author='Cosmin Basca',
     author_email='webadmin@eea.europa.eu',
-    url='http://plone.org/products/SuRF',
+    url='http://github.com/eea/SuRF',
     license='MPL',
-    packages=find_packages('src', exclude=['ez_setup']),
-    package_dir = {'':'src'},
+    packages=find_packages(exclude=['surf.test']),
     entry_points="""
       # -*- Entry points: -*-
       [z3c.autoinclude.plugin]
@@ -40,6 +39,5 @@ setup(
           'setuptools',
           # -*- Extra requirements: -*-
           'rdflib >= 2.4.2',
-          'simplejson >= 2.0.9',
     ]
 )
