@@ -56,6 +56,7 @@ __readers__ = {}
 __writers__ = {}
 
 def __init_plugins(plugins, entry_point):
+    #import pdb; pdb.set_trace()
     for entrypoint in pkg_resources.iter_entry_points(entry_point):
         plugin_class = entrypoint.load()
         plugins[entrypoint.name] = plugin_class
@@ -68,10 +69,13 @@ def load_plugins(reload=False):
 
     '''
     global __plugins_loaded
+    #import pdb; pdb.set_trace()
     if not __plugins_loaded or reload:
+        #import pdb; pdb.set_trace()
         __init_plugins(__readers__, __ENTRYPOINT_READER__)
         __init_plugins(__writers__, __ENTRYPOINT_WRITER__)
         __plugins_loaded = True
+    #import pdb; pdb.set_trace()
 
 
 def __register_surf():
