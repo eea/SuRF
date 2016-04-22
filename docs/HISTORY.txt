@@ -3,6 +3,8 @@ Changelog
 
 2.2.dev0 - (unreleased)
 -----------------------
+* Change: cleanup
+  [alecghica refs #70945]
 
 2.1 - (2016-04-22)
 ------------------
