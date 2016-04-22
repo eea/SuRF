@@ -9,7 +9,7 @@ SUMMARY = (
 )
 DESCRIPTION = (
     open("README.rst", 'r').read() + '\n\n' +
-    open(os.path.join("docs", 'HISTORY.rst')).read()
+    open(os.path.join("docs", 'HISTORY.txt')).read()
 )
 
 VERSION = open('version.txt').read().strip()
