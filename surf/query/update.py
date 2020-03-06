@@ -35,11 +35,6 @@
 # -*- coding: utf-8 -*-
 __author__ = 'Cosmin Basca'
 
-# the rsf way
-#from rdf.graph import Graph, ConjunctiveGraph
-#from rdf.term import URIRef, Literal, BNode, RDF, RDFS
-#from rdf.namespace import Namespace
-
 from surf.query import Query, Group, NamedGroup, Filter, OptionalGroup, validate_statement
 from surf.rdf import RDF, URIRef, Namespace
 from surf.util import is_uri
@@ -59,6 +54,7 @@ CLEAR = 'CLEAR'
 CREATE = 'CREATE'
 DROP = 'DROP'
 
+
 class QueryUpdate(Query):
     """ Update query. """
 
@@ -67,7 +63,7 @@ class QueryUpdate(Query):
     TYPES.extend([MODIFY, INSERT, INSERT_DATA, DELETE, DELETE_DATA, LOAD, CLEAR, CREATE, DROP])
 
     def __init__(self, type, *vars):
-        Query.__init__(self, type, *vars)
+        super(QueryUpdate, self).__init__(type, *vars)
         self._into_uri = []
         self._from_uri = []
         self._template = []
@@ -124,7 +120,7 @@ class QueryUpdate(Query):
         self._clear_uri = uri
         return self
 
-    def __unicode__(self):
+    def _unicode(self):
         # Importing here to avoid circular imports.
         from surf.query.translator.sparul import SparulTranslator
         return SparulTranslator(self).translate()

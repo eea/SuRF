@@ -33,52 +33,38 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
+from builtins import object
+from abc import ABCMeta
+import logging
+from future.utils import with_metaclass
+
 __author__ = 'Cosmin Basca'
 
-import logging
-from surf.query import Query
 
-class Plugin(object):
+class Plugin(with_metaclass(ABCMeta, object)):
     """
-    Super class for all SuRF plugins, provides basic instantiation
-    and `logging`.
+    Super class for all SuRF plugins, provides basic instantiation and `logging`.
     """
 
     def __init__(self, *args, **kwargs):
-        logging.basicConfig()
-        self.log = logging.getLogger(self.__class__.__name__)
-        self.log.setLevel(logging.NOTSET)
-        self.__inference = False
-
-    def enable_logging(self, enable = True):
-        """ Enables or disable `logging` for the current `plugin`. """
-
-        level = enable and logging.DEBUG or logging.NOTSET
-        self.log.setLevel(level)
-
-    def is_enable_logging(self):
-        """ `True` if `logging` is enabled. """
-
-        return (self.log.level == logging.DEBUG)
+        super(Plugin, self).__init__()
+        self._inference = False
 
     def close(self):
-        """ Close the `plugin` and free any resources it may hold. """
-
-        pass
-
-    def __set_inference(self, val):
-        """ Setter method for the `inference` property.
-
-        Do not use this method, use the `inference` property instead.
-
+        """
+        Close the `plugin` and free any resources it may hold
         """
 
+    @property
+    def inference(self):
+        """
+        Toggle `logical inference` on / off. The property has any effect only if such functionality is supported by
+        the underlying  :class:`surf.store.Store` store
+        """
+        return self._inference
+
+    @inference.setter
+    def inference(self, val):
         if not isinstance(val, bool):
             val = False
-        
-        self.__inference = val
-
-    inference = property(fget = lambda self:self.__inference,
-                         fset = __set_inference)
-    """ Toggle `logical inference` on / off. The property has any effect
-    only if such functionality is supported by the underlying data `store`. """
+        self._inference = val

@@ -1,8 +1,10 @@
 """ Module for ResultProxy. """
-
-from surf.exc import NoResultFound, MultipleResultsFound
+from past.builtins import basestring
+from builtins import object
+from surf.exceptions import NoResultFound, MultipleResultsFound
 from surf.rdf import Literal
 from surf.util import attr2rdf, value_to_rdf
+
 
 class ResultProxy(object):
     """ Interface to :meth:`surf.store.Store.get_by`.
@@ -12,34 +14,34 @@ class ResultProxy(object):
 
     ResultProxy doesn't know how to convert data returned by
     :meth:`surf.store.Store.get_by` into :class:`surf.resource.Resource`, `URIRef`
-    and `Literal` objects. It delegates this task to `instancemaker`
+    and `Literal` objects. It delegates this task to `instance_factory`
     function.
 
     """
 
-    def __init__(self, params = {}, store = None, instancemaker = None):
-        self.__params = params
-        self.__get_by_response = None
+    def __init__(self, params = None, store = None, instance_factory = None):
+        self._params = params if params else dict()
+        self._get_by_response = None
 
-        if store:
-            self.__params["store"] = store
+        if store is not None:
+            self._params["store"] = store
 
-        if instancemaker:
-            self.__params["instancemaker"] = instancemaker
+        if instance_factory is not None:
+            self._params["instance_factory"] = instance_factory
 
-    def instancemaker(self, instancemaker_function):
+    def instance_factory(self, instance_factory_func):
         """ Specify the function for converting triples into instances.
 
-        ``instancemaker_function`` function can also be specified
+        ``instance_factory_func`` function can also be specified
         as argument to constructor when instantiating :class:`ResultProxy`.
 
-        ``instancemaker_function`` will be executed whenever
+        ``instance_factory_func`` will be executed whenever
         :class:`ResultProxy` needs to return a resource. It has to accept two
         arguments: ``params`` and ``instance_data``.
 
         ``params`` will be a dictionary containing query parameters gathered
         by :class:`ResultProxy`. Information from ``params`` can be used
-        by ``instancemaker_function``, for example, to decide what
+        by ``instance_factory_func``, for example, to decide what
         context should be set for created instances.
 
         ``instance_data`` will be a dictionary containing keys `direct` and
@@ -48,29 +50,33 @@ class ResultProxy(object):
 
         """
 
-        params = self.__params.copy()
-        params["instancemaker"] = instancemaker_function
+        params = self._params.copy()
+        params["instance_factory"] = instance_factory_func
         return ResultProxy(params)
 
     def limit(self, value):
         """ Set the limit for returned result count. """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params["limit"] = value
         return ResultProxy(params)
 
     def offset(self, value):
         """ Set the limit for returned results. """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params["offset"] = value
         return ResultProxy(params)
 
-    def full(self, only_direct = False):
+    def full(self, direct_only = False, **kwargs):
         """ Enable eager-loading of resource attributes.
 
-        If ``full`` is set to `True`, returned resources will have attributes
+        With this modifier, resources will have their attributes
         already loaded.
+        
+        If ``only_direct`` is set to `True`, only direct attributes
+        will be loaded. Accessing inverse attributes will work
+        but will generate extra requests to triple store.
 
         Whether setting this will bring performance
         improvements depends on reader plugin implementation.
@@ -79,9 +85,9 @@ class ResultProxy(object):
 
          """
 
-        params = self.__params.copy()
-        params["full"] = True
-        params["only_direct"] = only_direct
+        params                  = self._params.copy()
+        params['full']          = True
+        params['direct_only']   = direct_only
         return ResultProxy(params)
 
     def order(self, value = True):
@@ -101,14 +107,14 @@ class ResultProxy(object):
 
         """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params["order"] = value
         return ResultProxy(params)
 
     def desc(self):
         """ Set sorting order to descending. """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params["desc"] = True
         return ResultProxy(params)
 
@@ -128,7 +134,7 @@ class ResultProxy(object):
 
         """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         # Don't overwrite existing get_by parameters, just append new ones.
         # Overwriting get_by params would cause resource.some_attr.get_by()
         # to work incorrectly.
@@ -140,12 +146,11 @@ class ResultProxy(object):
                 # If value has a subject attribute, this must be a Resource, 
                 # take its subject.
                 value = value.subject
-            elif hasattr(value, "__iter__"):
+            elif not isinstance(value, basestring) and hasattr(value, "__iter__"):
                 # Map alternatives
-                value = map(lambda val: hasattr(val, "subject")
+                value = [hasattr(val, "subject")
                                         and val.subject
-                                        or value_to_rdf(val),
-                            value)
+                                        or value_to_rdf(val) for val in value]
             else:
                 value = value_to_rdf(value)
 
@@ -180,13 +185,13 @@ class ResultProxy(object):
 
         """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params.setdefault("filter", [])
-        for name, value in kwargs.items():
+        for name, value in list(kwargs.items()):
             attr, direct = attr2rdf(name)
             assert direct, "Only direct attributes can be used for filters"
             # Assume by plain strings user means literals
-            if type(value) in [str, unicode]:
+            if isinstance(value, str):
                 value = Literal(value)
             params["filter"].append((attr, value, direct))
         return ResultProxy(params)
@@ -194,31 +199,30 @@ class ResultProxy(object):
     def context(self, context):
         """ Specify context/graph that resources should be loaded from. """
 
-        params = self.__params.copy()
+        params = self._params.copy()
         params["context"] = context
         return ResultProxy(params)
 
     def __execute_get_by(self):
-        if self.__get_by_response is None:
+        if self._get_by_response is None:
             self.__get_by_args = {}
 
-            for key in ["limit", "offset", "full", "order", "desc", "get_by",
-                        "only_direct", "context", "filter"]:
-                if key in self.__params:
-                    self.__get_by_args[key] = self.__params[key]
+            for key in ['limit', 'offset', 'full', 'order', 'desc', 'get_by',
+                        'direct_only', 'context', 'filter']:
+                if key in self._params:
+                    self.__get_by_args[key] = self._params[key]
 
-            store = self.__params["store"]
-            self.__get_by_response = store.get_by(self.__get_by_args)
+            store = self._params['store']
+            self._get_by_response = store.get_by(self.__get_by_args)
 
-        return self.__get_by_args, self.__get_by_response
+        return self.__get_by_args, self._get_by_response
 
     def __iterator(self):
         get_by_args, get_by_response = self.__execute_get_by()
 
-        instancemaker = self.__params["instancemaker"]
+        instance_factory = self._params['instance_factory']
         for instance_data in get_by_response:
-            yield instancemaker(get_by_args, instance_data)
-
+            yield instance_factory(get_by_args, instance_data)
 
     def __iter__(self):
         """ Return iterator over resources in this collection. """
@@ -236,7 +240,7 @@ class ResultProxy(object):
 
         item = None
         try:
-            item = iter(self).next()
+            item = next(iter(self))
         except StopIteration:
             pass
 
@@ -254,12 +258,12 @@ class ResultProxy(object):
 
         iterator = iter(self)
         try:
-            item = iterator.next()
+            item = next(iterator)
         except StopIteration:
             raise NoResultFound("List is empty")
 
         try:
-            iterator.next()
+            next(iterator)
         except StopIteration:
             # As expected, return item
             return item

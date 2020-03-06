@@ -33,14 +33,10 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
+from builtins import object
 __author__ = 'Cosmin Basca'
 
-import logging
-
 from surf.query import Query
-from surf.rdf import BNode, ConjunctiveGraph, Graph, Literal, Namespace
-from surf.rdf import RDF, URIRef
-
 
 class QueryTranslator(object):
     '''The `QueryTranslator` class is responsible with the translation of the query

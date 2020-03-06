@@ -1,3 +1,4 @@
+from builtins import str
 # Copyright (c) 2009, Digital Enterprise Research Institute (DERI),
 # NUI Galway
 # All rights reserved.
@@ -33,104 +34,121 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
-__author__ = 'Cosmin Basca'
 
+from past.builtins import basestring
+__author__ = ['Cosmin Basca', 'Peteris Caune']
 
+from copy import deepcopy
 import sys
-
 from surf.rdf import ClosedNamespace, Namespace, RDF, RDFS
 
-__anonymous = 'NS'
-__anonymous_count = 0
+_anonymous         = 'NS'
+_anonymous_count   = 0
 
-ANNOTATION    = Namespace('http://www.w3.org/2000/10/annotation-ns#')
-ANNOTEA       = Namespace('http://www.w3.org/2002/01/bookmark#')
-ATOM          = Namespace('http://atomowl.org/ontologies/atomrdf#')
-BIBO          = Namespace('http://purl.org/ontology/bibo/')
-BIBO_DEGREES  = Namespace('http://purl.org/ontology/bibo/degrees/')
-BIBO_EVENTS   = Namespace('http://purl.org/ontology/bibo/events/')
-BIBO_ROLES    = Namespace('http://purl.org/ontology/bibo/roles/')
-BIBO_STATUS   = Namespace('http://purl.org/ontology/bibo/status/')
-CALENDAR      = Namespace('http://www.w3.org/2002/12/cal/icaltzd#')
-CONTACT       = Namespace('http://www.w3.org/2000/10/swap/pim/contact#')
-CORRIB_TAX    = Namespace('http://jonto.corrib.org/taxonomies#')
-DBLP          = Namespace('http://www4.wiwiss.fu-berlin.de/dblp/terms.rdf#')
-DBPEDIA       = Namespace('http://dbpedia.org/property/')
-DC            = Namespace('http://purl.org/dc/elements/1.1/')
-DCTERMS       = Namespace('http://purl.org/dc/terms/')
-DOAP          = Namespace('http://usefulinc.com/ns/doap#')
-EVENT         = Namespace('http://purl.org/NET/c4dm/event.owl#')
-EXIF          = Namespace('http://www.w3.org/2003/12/exif/ns/')
-FOAF          = Namespace('http://xmlns.com/foaf/0.1/')
-FRBR          = Namespace('http://purl.org/vocab/frbr/core#')
-FRESNEL       = Namespace('http://www.w3.org/2004/09/fresnel#')
-FTI           = Namespace('http://franz.com/ns/allegrograph/2.2/textindex/')
-GEO           = Namespace('http://www.w3.org/2003/01/geo/wgs84_pos#')
-GR            = Namespace('http://purl.org/goodrelations/v1#')
-IBIS          = Namespace('http://purl.org/ibis#')
-IDEAS         = Namespace('http://protege.stanford.edu/rdf')
-IMDB          = Namespace('http://www.csd.abdn.ac.uk/~ggrimnes/dev/imdb/IMDB#')
-JDL_STRUCTURE = Namespace('http://www.jeromedl.org/structure#')
-JONTO_DDC     = Namespace('http://www.corrib.org/jonto/ddc#')
-JONTO_PKT     = Namespace('http://www.corrib.org/jonto/pkt#')
-LUBM          = Namespace('http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#')
-MARCONT       = Namespace('http://www.marcont.org/ontology#')
-MO            = Namespace('http://purl.org/ontology/mo/')
-OWL           = Namespace('http://www.w3.org/2002/07/owl#')
-PIM           = Namespace('http://www.w3.org/2000/10/swap/pim/contact#')
-RESUME        = Namespace('http://captsolo.net/semweb/resume/cv.rdfs#')
-REVIEW        = Namespace('http://www.isi.edu/webscripter/communityreview/abstract-review-o#')
-SERENITY3     = Namespace('http://serenity.deri.org/imdb#')
-SIOC          = Namespace('http://rdfs.org/sioc/ns#')
-SIOC_SERVICES = Namespace('http://rdfs.org/sioc/services#')
-SIOC_TYPES    = Namespace('http://rdfs.org/sioc/types#')
-SKOS          = Namespace('http://www.w3.org/2004/02/skos/core#')
-SURF          = Namespace('http://code.google.com/p/surfrdf/')
-TIME          = Namespace('http://www.w3.org/2006/time#')
-VANN          = Namespace('http://purl.org/vocab/vann/')
-VCARD         = Namespace('http://nwalsh.com/rdf/vCard#')
-VS            = Namespace('http://www.w3.org/2003/06/sw-vocab-status/ns#')
-WGS84_POS     = Namespace('http://www.w3.org/2003/01/geo/wgs84_pos#')
-WIKIONT       = Namespace('http://sw.deri.org/2005/04/wikipedia/wikiont.owl')
-WORDNET       = Namespace('http://xmlns.com/wordnet/1.6/')
-WOT           = Namespace('http://xmlns.com/wot/0.1/')
-XFOAF         = Namespace('http://www.foafrealm.org/xfoaf/0.1/')
-XMLNS         = Namespace('http://www.w3.org/XML/1998/namespace')
-XSD           = Namespace("http://www.w3.org/2001/XMLSchema#")
-YAGO          = Namespace('http://dbpedia.org/class/yago/')
+ANNOTATION      = Namespace('http://www.w3.org/2000/10/annotation-ns#')
+ANNOTEA         = Namespace('http://www.w3.org/2002/01/bookmark#')
+ATOM            = Namespace('http://atomowl.org/ontologies/atomrdf#')
+BIBO            = Namespace('http://purl.org/ontology/bibo/')
+BIBO_DEGREES    = Namespace('http://purl.org/ontology/bibo/degrees/')
+BIBO_EVENTS     = Namespace('http://purl.org/ontology/bibo/events/')
+BIBO_ROLES      = Namespace('http://purl.org/ontology/bibo/roles/')
+BIBO_STATUS     = Namespace('http://purl.org/ontology/bibo/status/')
+CALENDAR        = Namespace('http://www.w3.org/2002/12/cal/icaltzd#')
+CONTACT         = Namespace('http://www.w3.org/2000/10/swap/pim/contact#')
+CORRIB_TAX      = Namespace('http://jonto.corrib.org/taxonomies#')
+DBLP            = Namespace('http://www4.wiwiss.fu-berlin.de/dblp/terms.rdf#')
+DBPEDIA         = Namespace('http://dbpedia.org/property/')
+DC              = Namespace('http://purl.org/dc/elements/1.1/')
+DCTERMS         = Namespace('http://purl.org/dc/terms/')
+DOAP            = Namespace('http://usefulinc.com/ns/doap#')
+EVENT           = Namespace('http://purl.org/NET/c4dm/event.owl#')
+EXIF            = Namespace('http://www.w3.org/2003/12/exif/ns/')
+FOAF            = Namespace('http://xmlns.com/foaf/0.1/')
+FRBR            = Namespace('http://purl.org/vocab/frbr/core#')
+FRESNEL         = Namespace('http://www.w3.org/2004/09/fresnel#')
+FTI             = Namespace('http://franz.com/ns/allegrograph/2.2/textindex/')
+GEO             = Namespace('http://www.w3.org/2003/01/geo/wgs84_pos#')
+GR              = Namespace('http://purl.org/goodrelations/v1#')
+IBIS            = Namespace('http://purl.org/ibis#')
+IDEAS           = Namespace('http://protege.stanford.edu/rdf')
+IMDB            = Namespace('http://www.csd.abdn.ac.uk/~ggrimnes/dev/imdb/IMDB#')
+JDL_STRUCTURE   = Namespace('http://www.jeromedl.org/structure#')
+JONTO_DDC       = Namespace('http://www.corrib.org/jonto/ddc#')
+JONTO_PKT       = Namespace('http://www.corrib.org/jonto/pkt#')
+LUBM            = Namespace('http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#')
+MARCONT         = Namespace('http://www.marcont.org/ontology#')
+MO              = Namespace('http://purl.org/ontology/mo/')
+OWL             = Namespace('http://www.w3.org/2002/07/owl#')
+PIM             = Namespace('http://www.w3.org/2000/10/swap/pim/contact#')
+RESUME          = Namespace('http://captsolo.net/semweb/resume/cv.rdfs#')
+REVIEW          = Namespace('http://www.isi.edu/webscripter/communityreview/abstract-review-o#')
+SERENITY3       = Namespace('http://serenity.deri.org/imdb#')
+SCHEMA          = Namespace('http://schema.org/')
+SIOC            = Namespace('http://rdfs.org/sioc/ns#')
+SIOC_SERVICES   = Namespace('http://rdfs.org/sioc/services#')
+SIOC_TYPES      = Namespace('http://rdfs.org/sioc/types#')
+SKOS            = Namespace('http://www.w3.org/2004/02/skos/core#')
+# -----------------------------------------------------------------------------
+SURF            = Namespace('http://code.google.com/p/surfrdf/')
+# -----------------------------------------------------------------------------
+TIME            = Namespace('http://www.w3.org/2006/time#')
+VANN            = Namespace('http://purl.org/vocab/vann/')
+VCARD           = Namespace('http://nwalsh.com/rdf/vCard#')
+VS              = Namespace('http://www.w3.org/2003/06/sw-vocab-status/ns#')
+WGS84_POS       = Namespace('http://www.w3.org/2003/01/geo/wgs84_pos#')
+WIKIONT         = Namespace('http://sw.deri.org/2005/04/wikipedia/wikiont.owl')
+WORDNET         = Namespace('http://xmlns.com/wordnet/1.6/')
+WOT             = Namespace('http://xmlns.com/wot/0.1/')
+XFOAF           = Namespace('http://www.foafrealm.org/xfoaf/0.1/')
+XMLNS           = Namespace('http://www.w3.org/XML/1998/namespace')
+XSD             = Namespace("http://www.w3.org/2001/XMLSchema#")
+YAGO            = Namespace('http://dbpedia.org/class/yago/')
 
-__fallback_namespace = SURF 
+# -----------------------------------------------------------------------------
+# some special properties
+# -----------------------------------------------------------------------------
+RDF_TYPE        = RDF.type
+RDFS_CLASS      = RDFS.Class
+OWL_CLASS       = OWL.Class
+
+
+_fallback_namespace = SURF
 
 # Fix for http://code.google.com/p/rdflib/issues/detail?id=154
-def __unicode(namespace):
-    uri = unicode(namespace)
-    if type(uri) not in (str, unicode) and hasattr(namespace, 'uri'):
-        uri = unicode(namespace.uri)
+def _unicode(namespace):
+    uri = str(namespace)
+    if not isinstance(uri, basestring) and hasattr(namespace, 'uri'):
+        uri = str(namespace.uri)
     return uri
 
 # an internal inverted dict - for fast access
-__inverted_dict__ = {}
-for k, v in sys.modules[__name__].__dict__.items():
-    if isinstance(v, Namespace) or isinstance(v, ClosedNamespace):
-        __inverted_dict__[__unicode(v)] = k
+_INVERTED = {}
+for k, v in list(sys.modules[__name__].__dict__.items()):
+    if isinstance(v, (Namespace, ClosedNamespace)):
+        if k == "_fallback_namespace":
+            # no, this is not a namespace prefix, this is just a variable name
+            continue
+        _INVERTED[_unicode(v)] = k
         
-__direct_dict__ = {}
-for k, v in sys.modules[__name__].__dict__.items():
-    if isinstance(v, Namespace) or isinstance(v, ClosedNamespace):
-        __direct_dict__[k] = v
+__DIRECT__ = {}
+for k, v in list(sys.modules[__name__].__dict__.items()):
+    if isinstance(v, (Namespace, ClosedNamespace)):
+        __DIRECT__[k] = v
         
 def __add_inverted(prefix):
     ns_dict = sys.modules[__name__].__dict__
-    __inverted_dict__[__unicode(ns_dict[prefix])] = prefix
+    _INVERTED[_unicode(ns_dict[prefix])] = prefix
     
 def __add_direct(prefix):
     ns_dict = sys.modules[__name__].__dict__
-    __direct_dict__[prefix] = ns_dict[prefix]
+    __DIRECT__[prefix] = ns_dict[prefix]
     
-def all():
-    """ Return all the namespaces registered as a dict.
+def all(copy=False):
+    """ Return all registered namespaces as a dict, if `copy` is `True` than a copy
+    of the dictionary is returned. By default, the actual internal dict is returned,
+    and therefore any changes are reflected in the namespace manager.
     """
-    return __direct_dict__
+    return deepcopy(__DIRECT__) if copy else __DIRECT__
             
 def base(property):
     """ Return the base part of a URI, `property` is a string denoting a URI.
@@ -177,7 +195,7 @@ def register(**namespaces):
     for key in namespaces:
         uri = namespaces[key]
         prefix = key.upper()
-        if not type(uri) in [Namespace, ClosedNamespace]:
+        if not isinstance(uri, (Namespace, ClosedNamespace)):
             uri = Namespace(uri)
         
         ns_dict[prefix] = uri
@@ -203,12 +221,11 @@ def register_fallback(namespace):
     if not isinstance(namespace, Namespace):
         namespace = Namespace(namespace)
 
-    global __fallback_namespace
-    __fallback_namespace = namespace
+    global _fallback_namespace
+    _fallback_namespace = namespace
 
 def get_fallback_namespace():
-    global __fallback_namespace
-    return __fallback_namespace
+    return _fallback_namespace
 
 def get_namespace(base):
     """ Return the `namespace` short hand notation and the URI based on the
@@ -224,18 +241,18 @@ def get_namespace(base):
 
     """
 
-    global __anonymous_count
+    global _anonymous_count
     ns_dict = sys.modules[__name__].__dict__
     
-    if not type(base) in [str, unicode]:
+    if not isinstance(base, (str, str)):
         base = str(base)
 
     try:
-        prefix = __inverted_dict__[base]
+        prefix = _INVERTED[base]
         uri = ns_dict[prefix]
     except KeyError:
-        prefix = '%s%d' % (__anonymous, __anonymous_count + 1)
-        __anonymous_count += 1
+        prefix = '%s%d' % (_anonymous, _anonymous_count + 1)
+        _anonymous_count += 1
         uri = Namespace(base)
         register(**{prefix: uri})
     return prefix, uri
@@ -272,7 +289,7 @@ def get_prefix(uri):
     """
 
     try:
-        return __inverted_dict__[uri.__str__()]
+        return _INVERTED[uri.__str__()]
     except:
         return None
 

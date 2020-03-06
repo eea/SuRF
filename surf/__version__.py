@@ -33,8 +33,12 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
+from builtins import map
+from collections import namedtuple
+
 __author__ = 'Cosmin Basca'
 
-version = (1,1,4)
+VersionSpec = namedtuple('VersionSpec', ['major', 'minor', 'revision'])
 
-str_version = '%d.%d.%d'%(version[0],version[1],version[2])
+version = VersionSpec(1, 2, 0)
+str_version = '.'.join(map(str, version))

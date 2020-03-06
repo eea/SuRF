@@ -33,13 +33,17 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
-__author__ = 'Cosmin Basca'
-
-import logging
-import re
+from builtins import object
+from builtins import str
+from past.builtins import basestring
+import sys
+_py_version = sys.version_info[0]
 
 from surf.rdf import BNode, Graph, ConjunctiveGraph, Literal, Namespace
 from surf.rdf import RDF, URIRef
+import re
+
+__author__ = 'Cosmin Basca'
 
 a = RDF['type']
 
@@ -53,52 +57,88 @@ REDUCED = 'reduced'
 
 UNION = 'union'
 
-#the classes
+
 class Group(list):
-    '''A **SPARQL** triple pattern group
-    '''
-    pass
+    """
+    A **SPARQL** triple pattern group
+    """
+
 
 class NamedGroup(Group):
-    '''A **SPARQL** triple pattern named group
-    '''
+    """
+    A **SPARQL** triple pattern named group
+    """
     def __init__(self, name = None):
-        Group.__init__(self)
-        if isinstance(name, URIRef) or (type(name) in [str, unicode] and name.startswith('?')):
+        super(NamedGroup, self).__init__()
+        if isinstance(name, URIRef) or (isinstance(name, str) and name.startswith('?')):
             self.name = name
         else:
-            raise ValueError('The names')
+            raise ValueError("Invalid specifier for named group"
+                             ", should be either a variable (e.g. '?s')"
+                             " or a URIRef instance")
+
 
 class OptionalGroup(Group):
-    '''A **SPARQL** triple pattern optional group
-    '''
-    pass
+    """
+    A **SPARQL** triple pattern optional group
+    """
+
 
 class Union(Group):
-    '''A **SPARQL** union
-    '''
-    pass
+    """
+    A **SPARQL** union
+    """
 
-class Filter(unicode):
-    '''A **SPARQL** triple pattern filter
-    '''
+
+class Filter(str):
+    """
+    A **SPARQL** triple pattern filter
+    """
     @classmethod
-    def regex(cls, var, pattern, flag = None):
-        if type(var) in [str, unicode] and var.startswith('?'): pass
-        else: raise ValueError('not a filter variable')
+    def regex(cls, var, pattern, flag=None):
+        if isinstance(var, basestring) and var.startswith('?'):
+            pass
+        else:
+            raise ValueError('not a filter variable')
 
-        if type(pattern) in [str, unicode]:     pass
-        elif type(pattern) is Literal:          pattern = '"%s"@%s' % (pattern, pattern.language)
-        elif type(pattern) in [list, tuple]:    pattern = '"%s"@%s' % (pattern[0], pattern[1])
-        else:                                   raise ValueError('regular expression')
+        if isinstance(pattern, basestring):
+            pass
+        elif isinstance(pattern, Literal):
+            pattern = '"{0:s}"@{1:s}'.format(pattern, pattern.language)
+        elif isinstance(pattern, (list, tuple)):
+            pattern = '"{0:s}"@{1:s}'.format(pattern[0], pattern[1])
+        else:
+            raise ValueError('regular expression')
 
         if flag is None:
             flag = ""
         else:
-            if not type(flag) in [str, unicode]:
+            if not isinstance(flag, basestring):
                 raise ValueError('not a filter flag')
 
-        return Filter('regex(%s,"%s"%s)' % (var, pattern, ',"%s"' % flag))
+        return Filter('regex({0:s},"{1:s}"{2:s})'.format(var, pattern, u',"{0:s}"'.format(flag)))
+
+
+def _validate_variable(variable):
+    if isinstance(variable, basestring):
+        if variable.startswith('?'):
+            return True
+        elif re.match('\s*\(\s*.+\s+AS\s+\?.+\)\s*$', variable):
+            # SPARQL 1.1 expressions http://www.w3.org/TR/sparql11-query/#rSelectClause
+            return True
+        else:
+            for aggregate in Query.AGGREGATE_FUNCTIONS:
+                if variable.lower().startswith(aggregate):
+                    return True
+        raise ValueError('''Not a variable : <%s>, check correct syntax ("?",
+                            expression, or supported aggregate %s)'''
+                         % (variable, str(Query.AGGREGATE_FUNCTIONS)))
+    else:
+        print(variable, type(variable), str.__name__)
+        raise ValueError('''Unknown variable type, all variables must either
+                         start with a "?" or be among the recognized aggregates :
+                         %s''' % Query.AGGREGATE_FUNCTIONS)
+
 
 class Query(object):
     """
@@ -112,21 +152,21 @@ class Query(object):
     :func:`ask`, :func:`construct`, :func:`describe`, :func:`select` functions.
 
     Query methods can be chained.
-
     """
 
-    STATEMENT_TYPES = [list, tuple, Group, NamedGroup, OptionalGroup,
-                           Union, Filter] # + Query, but cannot reference it here.
-    AGGREGATE_FUCTIONS = ["count", "min", "max", "avg"]
+    STATEMENT_TYPES = [list, tuple, Group, NamedGroup, OptionalGroup, Union, Filter]  # + Query, (cannot reference here)
+
+    AGGREGATE_FUNCTIONS = ["count", "min", "max", "avg"]
+
     TYPES = [SELECT, ASK, CONSTRUCT, DESCRIBE]
 
     def __init__(self, type, *vars):
         if type not in self.TYPES:
-            raise ValueError('''The query is not of a supported type [%s], supported
-                             types are %s''' % (type, str(Query.TYPES)))
+            raise ValueError('''The query is not of a supported type [{0:s}], supported
+                             types are {1:s}'''.format(type, str(Query.TYPES)))
         self._type = type
         self._modifier = None
-        self._vars = [var for var in vars if self._validate_variable(var)]
+        self._vars = [var for var in vars if _validate_variable(var)]
         self._from = []
         self._from_named = []
         self._data = []
@@ -134,63 +174,89 @@ class Query(object):
         self._offset = None
         self._order_by = []
 
-    query_type = property(fget = lambda self: self._type)
-    '''the query `type` can be: *SELECT*, *ASK*, *DESCRIBE*or *CONSTRUCT*'''
-    query_modifier = property(fget = lambda self: self._modifier)
-    '''the query `modifier` can be: *DISTINCT*, *REDUCED*, or `None`'''
-    query_vars = property(fget = lambda self: self._vars)
-    '''the query `variables` to return as the resultset'''
-    query_from = property(fget = lambda self: self._from)
-    '''list of URIs that will go into query FROM clauses'''
-    query_from_named = property(fget = lambda self: self._from_named)
-    '''list of URIs that will go into query FROM NAMED clauses'''
-    query_data = property(fget = lambda self: self._data)
-    '''the query `data`, internal structure representing the contents of the *WHERE* clause'''
-    query_limit = property(fget = lambda self: self._limit)
-    '''the query `limit`, can be a number or None'''
-    query_offset = property(fget = lambda self: self._offset)
-    '''the query `offset`, can be a number or None'''
-    query_order_by = property(fget = lambda self: self._order_by)
-    '''the query `order by` variables'''
+    @property
+    def query_type(self):
+        """
+        the query `type` can be: *SELECT*, *ASK*, *DESCRIBE*or *CONSTRUCT*
+        """
+        return self._type
 
-    def _validate_variable(self, var):
-        if type(var) in [str, unicode]:
-            if var.startswith('?'):
-                return True
-            elif re.match('\s*\(\s*.+\s+AS\s+\?.+\)\s*$', var):
-                # SPARQL 1.1 expressions http://www.w3.org/TR/sparql11-query/#rSelectClause
-                return True
-            else:
-                for aggregate in Query.AGGREGATE_FUCTIONS:
-                    if var.lower().startswith(aggregate):
-                        return True
-            raise ValueError('''Not a variable : <%s>, check correct syntax ("?",
-                                expression, or supported aggregate %s)'''
-                             % (var, str(Query.AGGREGATE_FUCTIONS)))
-        else:
-            raise ValueError('''Unknown variable type, all variables must either
-                             start with a "?" or be among the recognized aggregates :
-                             %s''' % Query.AGGREGATE_FUCTIONS)
+    @property
+    def query_modifier(self):
+        """
+        the query `modifier` can be: *DISTINCT*, *REDUCED*, or `None`
+        """
+        return self._modifier
+
+    @property
+    def query_vars(self):
+        """
+        the query `variables` to return as the resultset
+        """
+        return self._vars
+
+    @property
+    def query_from(self):
+        """
+        list of URIs that will go into query FROM clauses
+        """
+        return self._from
+
+    @property
+    def query_from_named(self):
+        """
+        list of URIs that will go into query FROM NAMED clauses
+        """
+        return self._from_named
+
+    @property
+    def query_data(self):
+        """
+        the query `data`, internal structure representing the contents of the *WHERE* clause
+        """
+        return self._data
+
+    @property
+    def query_limit(self):
+        """
+        the query `limit`, can be a number or None
+        """
+        return self._limit
+
+    @property
+    def query_offset(self):
+        """
+        the query `offset`, can be a number or None
+        """
+        return self._offset
+
+    @property
+    def query_order_by(self):
+        """
+        the query `order by` variables
+        """
+        return self._order_by
 
     def distinct(self):
-        """ Add *DISTINCT* modifier. """
-
+        """
+        Add *DISTINCT* modifier.
+        """
         self._modifier = DISTINCT
         return self
 
     def reduced(self):
-        """ Add *REDUCED* modifier. """
-
+        """
+        Add *REDUCED* modifier.
+        """
         self._modifier = REDUCED
         return self
 
     def from_(self, *uris):
-        """ Add graph URI(s) that will go in separate *FROM* clause.
+        """
+        Add graph URI(s) that will go in separate *FROM* clause.
 
         Each argument can be either `string` or :class:`surf.rdf.URIRef`.
-
         """
-
         for uri in uris:
             if uri is None:
                 raise ValueError("Invalid graph URI")
@@ -199,12 +265,11 @@ class Query(object):
         return self
 
     def from_named(self, *uris):
-        """ Add graph URI(s) that will go in separate *FROM NAMED* clause.
+        """
+        Add graph URI(s) that will go in separate *FROM NAMED* clause.
 
         Each argument can be either `string` or :class:`surf.rdf.URIRef`.
-
         """
-
         for uri in uris:
             if uri is None:
                 raise ValueError("Invalid graph URI")
@@ -213,7 +278,8 @@ class Query(object):
         return self
 
     def where(self, *statements):
-        """ Add graph pattern(s) to *WHERE* clause.
+        """
+        Add graph pattern(s) to *WHERE* clause.
 
         `where()` accepts multiple arguments. Each argument represents a
         a graph pattern and will be added to default group graph pattern.
@@ -222,21 +288,22 @@ class Query(object):
 
         Example:
 
-        >>> query = select("?s").where(("?s", a, surf.ns.FOAF["person"]))
+        .. code-block:: python
+
+            >>> from surf.namespace import FOAF
+            >>> query = select("?s").where(("?s", a, FOAF["person"]))
 
         """
-
         self._data.extend([stmt for stmt in statements if validate_statement(stmt)])
         return self
 
     def optional_group(self, *statements):
-        """ Add optional group graph pattern to *WHERE* clause.
+        """
+        Add optional group graph pattern to *WHERE* clause.
 
         `optional_group()` accepts multiple arguments, similarly
         to :meth:`where()`.
-
         """
-
         g = OptionalGroup()
         g.extend([stmt for stmt in statements if validate_statement(stmt)])
         self._data.append(g)
@@ -255,7 +322,8 @@ class Query(object):
         return self
 
     def named_group(self, name, *statements):
-        """ Add ``GROUP ?name { ... }`` construct to *WHERE* clause.
+        """
+        Add ``GROUP ?name { ... }`` construct to *WHERE* clause.
 
         ``name`` is the variable name that will be bound to graph IRI.
 
@@ -263,71 +331,87 @@ class Query(object):
 
         Example:
 
-        >>> import surf
-        >>> from surf.query import a, select
-        >>> query = select("?s", "?src").named_group("?src", ("?s", a, surf.ns.FOAF['Person']))
-        >>> print unicode(query)
-        SELECT  ?s ?src  WHERE {  GRAPH ?src {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://xmlns.com/foaf/0.1/Person>  }  }    
+        .. code-block:: python
+
+            >>> import surf
+            >>> from surf.query import a, select
+            >>> query = select("?s", "?src").named_group("?src", ("?s", a, surf.ns.FOAF['Person']))
+            >>> print unicode(query)
+            SELECT  ?s ?src  WHERE {  GRAPH ?src {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://xmlns.com/foaf/0.1/Person>  }  }
 
         """
-
         g = NamedGroup(name)
         g.extend([stmt for stmt in statements if validate_statement(stmt)])
         self._data.append(g)
         return self
 
     def filter(self, filter):
-        """ Add *FILTER* construct to query *WHERE* clause.
+        """
+        Add *FILTER* construct to query *WHERE* clause.
 
         ``filter`` must be either `string`/`unicode` or
         :class:`surf.query.Filter` object, if it is `None` then no filter
         is appended.
-
         """
 
         if not filter:
             return self
-        elif type(filter) in [str, unicode]:
+        elif isinstance(filter, basestring):
             filter = Filter(filter)
-        elif type(filter) is not Filter:
+        elif not isinstance(filter, Filter):
+            print(type(filter))
             raise ValueError('the filter must be of type Filter, str or unicode following the syntax of the query language')
         self._data.append(filter)
         return self
 
     def limit(self, limit):
-        """ Add *LIMIT* modifier to query. """
-
+        """
+        Add *LIMIT* modifier to query.
+        """
         if limit:
             self._limit = limit
         return self
 
     def offset(self, offset):
-        """ Add *OFFSET* modifier to query. """
-
+        """
+        Add *OFFSET* modifier to query.
+        """
         if offset:
             self._offset = offset
         return self
 
-    def order_by(self, *vars):
-        """ Add *ORDER_BY* modifier to query. """
-
+    def order_by(self, *variables):
+        """
+        Add *ORDER_BY* modifier to query.
+        """
         pattern = re.compile("(asc|desc)\(\?\w+\)|\?\w+", re.I)
-        for var in vars:
+        for var in variables:
             if re.match(pattern, var):
                 self._order_by.append(var)
 
         return self
 
-    def __unicode__(self):
+    def _unicode(self):
         # Importing here to avoid circular imports.
         from surf.query.translator.sparql import SparqlTranslator
         return SparqlTranslator(self).translate()
 
+    def __unicode__(self):
+        return self._unicode()
+
     def __str__(self):
-        return unicode(self).encode("utf-8")
+        if _py_version == 3:
+            return self._unicode()
+        else:
+            return str(self._unicode()).encode("utf-8")
+
 
 def validate_statement(statement):
-    if type(statement) in Query.STATEMENT_TYPES or isinstance(statement, Query):
+    if isinstance(statement, tuple(Query.STATEMENT_TYPES + [Query])):
+        # since `NamedGroup` inherits from `list` via `Group` here we want
+        # to use `type()` instead of `isinstance()` as we need to tell
+        # whether `statement` is e.g. a list/tuple or an instance of
+        # `NamedGroup`
         if type(statement) in [list, tuple]:
             try:
                 s, p, o = statement
@@ -335,65 +419,71 @@ def validate_statement(statement):
                 raise ValueError('''Statement of type [list, tuple] does not
                                  have all the (s,p,o) members (the length of the
                                  supplied arguemnt must be at least 3)''')
-            if type(s) in [URIRef, BNode] or \
-                (type(s) in [str, unicode] and s.startswith('?')): pass
-            else: raise ValueError('The subject is not a valid variable type')
-
-            if type(p) in [URIRef] or \
-                (type(p) in [str, unicode] and p.startswith('?')): pass
-            else: raise ValueError('The predicate is not a valid variable type')
-
-            if type(o) in [URIRef, BNode, Literal] or \
-                (type(o) in [str, unicode] and o.startswith('?')): pass
+            if isinstance(s, (URIRef, BNode)) or (isinstance(s, basestring) and s.startswith('?')):
+                pass
             else:
-                raise ValueError('The object is not a valid variable type: %s' % o)
+                raise ValueError('The subject is not a valid variable type')
+
+            if isinstance(p, URIRef) or (isinstance(p, basestring) and p.startswith('?')):
+                pass
+            else:
+                raise ValueError('The predicate is not a valid variable type')
+
+            if isinstance(o, (URIRef, BNode, Literal)) or (isinstance(o, basestring) and o.startswith('?')):
+                pass
+            else:
+                raise ValueError(u'The object is not a valid variable type: {0:s}'.format(o))
 
         return True
     else:
-        raise ValueError('Statement type not in %s' % str(Query.STATEMENT_TYPES))
+        raise ValueError('Statement type not in {0:s}'.format)
+
 
 def optional_group(*statements):
-    """ Return optional group graph pattern.
+    """
+    Return optional group graph pattern.
 
     Returned object can be used as argument in :meth:`Query.where` method.
 
     `optional_group()` accepts multiple arguments, similarly
     to :meth:`Query.where()`.
-
     """
-
     g = OptionalGroup()
     g.extend([stmt for stmt in statements if validate_statement(stmt)])
     return g
 
+
 def group(*statements):
-    """ Return group graph pattern.
+    """
+    Return group graph pattern.
 
     Returned object can be used as argument in :meth:`Query.where` method.
 
     group()` accepts multiple arguments, similarly
     to :meth:`Query.where()`.
-
     """
     g = Group()
     g.extend([stmt for stmt in statements if validate_statement(stmt)])
     return g
 
+
 def union(*statements):
-    """ Return union graph pattern.
+    """
+    Return union graph pattern.
 
     Returned object can be used as argument in :meth:`Query.where` method.
 
     union()` accepts multiple arguments, similarly
     to :meth:`Query.where()`.
-
     """
     g = Union()
     g.extend([stmt for stmt in statements if validate_statement(stmt)])
     return g
 
+
 def named_group(name, *statements):
-    """ Return named group graph pattern.
+    """
+    Return named group graph pattern.
 
     Returned object can be used as argument in :meth:`Query.where` method.
 
@@ -401,43 +491,52 @@ def named_group(name, *statements):
 
     Example:
 
-    >>> import surf
-    >>> from surf.query import a, select, named_group
-    >>> query = select("?s", "?src").where(named_group("?src", ("?s", a, surf.ns.FOAF['Person'])))
-    >>> print unicode(query)
-    SELECT  ?s ?src  WHERE {  GRAPH ?src {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://xmlns.com/foaf/0.1/Person>  }  }    
+    .. code-block:: python
+
+        >>> import surf
+        >>> from surf.query import a, select, named_group
+        >>> query = select("?s", "?src").where(named_group("?src", ("?s", a, surf.ns.FOAF['Person'])))
+        >>> print unicode(query)
+        SELECT  ?s ?src  WHERE {  GRAPH ?src {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://xmlns.com/foaf/0.1/Person>  }  }
 
     """
-
     g = NamedGroup(name)
     g.extend([stmt for stmt in statements if validate_statement(stmt)])
     return g
 
-# the query creators
-def select(*vars):
-    """ Construct and return :class:`surf.query.Query` object of type **SELECT**
+
+def select(*variables):
+    """
+    Construct and return :class:`surf.query.Query` object of type **SELECT**
 
     ``*vars`` are variables to be selected.
 
     Example:
 
-    >>> query = select("?s", "?p", "?o")
+    .. code-block:: python
+
+        >>> query = select("?s", "?p", "?o")
 
     """
+    return Query(SELECT, *variables)
 
-    return Query(SELECT, *vars)
 
 def ask():
-    """ Construct and return :class:`surf.query.Query` object of type **ASK** """
-
+    """
+    Construct and return :class:`surf.query.Query` object of type **ASK**
+    """
     return Query(ASK)
 
-def construct(*vars):
-    """ Construct and return :class:`surf.query.Query` object of type **CONSTRUCT** """
 
-    return Query(CONSTRUCT, *vars)
+def construct(*variables):
+    """
+    Construct and return :class:`surf.query.Query` object of type **CONSTRUCT**
+    """
+    return Query(CONSTRUCT, *variables)
 
-def describe(*vars):
-    """ Construct and return :class:`surf.query.Query` object of type **DESCRIBE** """
 
-    return Query(DESCRIBE, *vars)
+def describe(*variables):
+    """
+    Construct and return :class:`surf.query.Query` object of type **DESCRIBE**
+    """
+    return Query(DESCRIBE, *variables)

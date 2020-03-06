@@ -1,23 +1,33 @@
 # coding=UTF-8
-""" Module for SPARQL generation tests. """
-
-from unittest import TestCase
-
-from surf import ns
+import pytest
+import logging
+import warnings
 from surf.plugin.query_reader import RDFQueryReader
+from surf.util import error_message
 
-class TestQueryReader(TestCase):
-    """ Tests for query_reader module. """
-    
-    def test_convert_unicode_exception(self):
-        """ Test RDFQueryReader.convert() handles exceptions with unicode. """
 
-        class MyQueryReader(RDFQueryReader):
-            # We want convert() to catch an exception.
-            # Cannot override __convert and throw from there,
-            # but we know __convert calls _to_table... 
-            def _to_table(self, _):
-                raise Exception(u"This is unicode: ā")
-            
-            
+def test_convert_unicode_exception():
+    """
+    Test RDFQueryReader.convert() handles exceptions with unicode.
+    """
+
+    class MyQueryReader(RDFQueryReader):
+        def _ask(self, result):
+            pass
+
+        def _execute(self, query):
+            pass
+
+        # We want convert() to catch an exception.
+        # Cannot override __convert and throw from there,
+        # but we know __convert calls _to_table...
+        def _to_table(self, _):
+            warnings.simplefilter("ignore")
+            raise Exception(u"This is unicode: ā")
+
+    try:
+        logging.disable(logging.ERROR)
         MyQueryReader().convert(None)
+        logging.disable(logging.NOTSET)
+    except Exception as e:
+        pytest.fail(error_message(e), pytrace=True)

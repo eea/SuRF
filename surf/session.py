@@ -33,9 +33,15 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
+from builtins import str
+from builtins import object
+try:
+    # Python 2
+    from __builtin__ import str as builtin_str
+except ImportError:
+    # Python 3
+    from builtins import str as builtin_str
 __author__ = 'Cosmin Basca'
-
-import new
 
 from surf.rdf import BNode, URIRef
 from surf.resource import Resource
@@ -46,7 +52,7 @@ from surf.util import attr2rdf, de_camel_case, is_uri, uri_to_classname
 '''
 TODO:
     Come to a resolution regarding the metaclass conflict
-    for now classes that extend the Resource must have no metaclasses of 
+    for now classes that extend Resource must have no metaclasses of
     their own.
     
     Q: is it a good idea the generate a sublclass of all meta?
@@ -70,9 +76,7 @@ class Session(object):
     """
 
     # TODO: add cache
-
-    def __init__(self, default_store = None, mapping = {},
-                 auto_persist = False, auto_load = False):
+    def __init__(self, default_store=None, mapping=None, auto_persist=False, auto_load=False):
         """ Create a new `session` object that handles the creation of types
         and instances, also the session binds itself to the `Resource` objects
         to allow the Resources to access the data `store` and perform
@@ -83,119 +87,93 @@ class Session(object):
 
         """
 
+        if mapping is None:
+            mapping = {}
         self.mapping = mapping
 
-        self.__auto_persist = auto_persist
-        self.__auto_load = auto_load
-        #self.__use_cached = use_cached
-        #self.__cache_expire = cache_expire
-        self.__stores = {}
+        self._auto_persist = auto_persist
+        self._auto_load = auto_load
+        self._stores = {}
 
-        if default_store:
-            if type(default_store) is not Store:
+        if default_store is not None:
+            if not isinstance(default_store, Store):
                 raise Exception('the arguments is not a valid Store instance')
             self.default_store = default_store
 
     # Emulate a dict for the sessions stores.
     def __len__(self):
         """ Total number of `stores` managed by the session. """
-        return len(self.__stores)
+        return len(self._stores)
 
     def __getitem__(self, key):
         """ Return the `store` associated with the key. """
 
-        return self.__stores[key]
+        return self._stores[key]
 
     def __setitem__(self, key, value):
         """ Set the `store` for the specified key, if value not a `Store`
         instance ignored. """
 
-        if type(value) is Store :
-            self.__stores[key] = value
+        if type(value) is Store:
+            self._stores[key] = value
 
     def __delitem__(self, key):
         """ Remove the specified `store` from the management `session`. """
-        del self.__stores[key]
+        del self._stores[key]
 
     def __iter__(self):
         """ `iterator` over the managed `stores`. """
-        return self.__stores.__iter__()
+        return self._stores.__iter__()
 
     def __reversed__(self):
-        return self.__stores.__reversed__()
+        return list(self._stores.items()).__reversed__()
 
     def __contains__(self, item):
         """ True if the `item` is contained within the managed `stores`. """
-
-        return self.__stores.__contains__(item)
+        return self._stores.__contains__(item)
 
     def keys(self):
         """ The `keys` that are assigned to the managed `stores`. """
+        return list(self._stores.keys())
 
-        return self.__stores.keys()
-
-    def set_auto_persist(self, val):
-        """ Setter function for the `auto_persist` property.
-
-        Do not use this, use the `auto_persist` property instead.
-
+    @property
+    def auto_persist(self):
         """
+        Toggle `auto_persistence` (no need to explicitly call `commit`,
+        `resources` are persisted to the `store` each time a modification occurs)
+        on or off. Accepts boolean values.
+        """
+        return self._auto_persist
 
+    @auto_persist.setter
+    def auto_persist(self, val):
         if not isinstance(val, bool):
             val = False
-            
-        self.__auto_persist = val
+        self._auto_persist = val
 
-    auto_persist = property(fget = lambda self: self.__auto_persist,
-                            fset = set_auto_persist)
-    """ Toggle `auto_persistence` (no need to explicitly call `commit`,
-    `resources` are persisted to the `store` each time a modification occurs)
-    on or off. Accepts boolean values. """
-
-    def set_auto_load(self, val):
-        """ Setter function for the `auto_load` property.
-
-        Do not use it, use the `auto_load` property instead
-
+    @property
+    def auto_load(self):
         """
+        Toggle `auto_load` (no need to explicitly call `load`, `resources` are
+        loaded from the `store` automatically on creation) on or off.
+        Accepts boolean values.
+        """
+        return self._auto_load
 
+    @auto_load.setter
+    def auto_load(self, val):
         if not isinstance(val, bool):
             val = False
+        self._auto_load = val
 
-        self.__auto_load = val
+    @property
+    def log_level(self):
+        return dict((sid, store.log_level) for sid, store in self._stores.items())
 
-    auto_load = property(fget = lambda self: self.__auto_load,
-                         fset = set_auto_load)
-    """Toggle `auto_load` (no need to explicitly call `load`, `resources` are
-    loaded from the `store` automatically on creation) on or off.
-    Accepts boolean values. """
-
-    def get_enable_logging(self):
-        """ Getter function for the `enable_logging` property.
-
-        Do not use this, use the `enable_logging` property instead.
-
-        """
-
-        for store in self.__stores:
-            if not self.__stores[store].is_enable_logging():
-                return False
-
-        return True
-
-    def set_enable_logging(self, enable):
-        """ Setter function for the `enable_logging` property.
-
-        Do not use this, use the `enable_logging` property instead.
-
-        """
-
-        for store in self.__stores:
-            self.__stores[store].enable_logging(enable)
-
-    enable_logging = property(fget = get_enable_logging,
-                              fset = set_enable_logging)
-    """ Toggle `logging` on or off. Accepts boolean values. """
+    @log_level.setter
+    def log_level(self, level):
+        for sid, store in self._stores.items():
+            store.log_level = level
 
     # TODO: add caching ... need strategies
     '''def set_use_cached(self,val):
@@ -211,55 +189,37 @@ class Session(object):
                                  fset = set_cache_expire)
     '''
 
-    def get_default_store_key(self):
-        """ Getter function for the `default_store_key` property.
-
-        Do not use this, use the `default_store_key` property instead.
-
+    @property
+    def default_store_key(self):
         """
+        The `default store key` of the session.
 
-        if DEFAULT_STORE_KEY in self.__stores:
+        If it is set explicitly on `session` creation it is returned, else the first `store key` is returned.
+        If no `stores` are in the session None is returned.
+        """
+        if DEFAULT_STORE_KEY in self._stores:
             return DEFAULT_STORE_KEY
-        elif len(self.__stores) > 0:
-            return self.__stores.keys()[0]
+        elif len(self._stores) > 0:
+            return list(self._stores.keys())[0]
         return None
 
-    default_store_key = property(fget = get_default_store_key)
-    """ The `default store key` of the session.
-
-    If it is set explicitly on `session` creation it is returned,
-    else the first `store key` is returned. If no `stores` are in the session
-    None is returned. """
-
-
-    def set_default_store(self, store):
-        """ Setter function for the `default_store` property.
-
-        Do not use this, use the `default_store` property instead.
-
+    @property
+    def default_store(self):
         """
+        The `default store` of the session.
 
-        self.__setitem__(DEFAULT_STORE_KEY, store)
-
-    def get_default_store(self):
-        """ Getter function for the `default_store` property.
-
-        Do not use this, use the `default_store` property instead.
-
+        See `default_store_key` to see how the `default store` is selected.
         """
-
         ds_key = self.default_store_key
         if ds_key:
-            return self.__stores[ds_key]
+            return self._stores[ds_key]
         return None
 
-    default_store = property(fget = get_default_store,
-                              fset = set_default_store)
-    """ The `default store` of the session.
+    @default_store.setter
+    def default_store(self, store):
+        self.__setitem__(DEFAULT_STORE_KEY, store)
 
-    See `default_store_key` to see how the `default store` is selected. """
-
-    def __uri(self, uri):
+    def _uri(self, uri):
         """ For **internal** use only, convert the `uri` to a `URIRef`. """
 
         if not uri:
@@ -278,29 +238,29 @@ class Session(object):
 
         .. note:: It is good practice to close the `session` when it's no
                   longer needed.
-                  Remember: upon closing session all resources will lose
+                  Remember: upon closing the session all resources will lose
                   the ability to reference the session thus the store and
                   the mapping.
 
         """
 
-        for store in self.__stores:
-            self.__stores[store].close()
-            del self.__stores[store]
+        for store in list(self._stores.keys()):
+            self._stores[store].close()
+            del self._stores[store]
 
         self.mapping = None
 
-    def map_type(self, uri, store = None, *classes):
+    def map_type(self, uri, store=None, classes=None):
         """ Create and return a `class` based on the `uri` given.
 
         Also will add the `classes` to the inheritance list.
 
         """
 
-        if store is None:
-            store = self.default_store_key
+        classes = classes if isinstance(classes, (tuple, set, list)) else []
+        store = store if store else self.default_store_key
 
-        uri = self.__uri(uri)
+        uri = self._uri(uri)
         if not uri:
             return None
         name = uri_to_classname(uri)
@@ -313,12 +273,12 @@ class Session(object):
         if type(session_classes) not in [list, tuple, set]:
             session_classes = [session_classes]
         base_classes.extend(session_classes)
-        return new.classobj(str(name), tuple(base_classes),
-                            {'uri' : uri, 
-                             'store_key' : store,
-                             'session' : self})
 
-    def get_class(self, uri, store = None, *classes):
+        return type(builtin_str(name), tuple(base_classes), {'uri': uri,
+                                                     'store_key': store,
+                                                     'session': self})
+
+    def get_class(self, uri, store=None, classes=None):
         """
         See :func:`surf.session.Session.map_type`.
         The `uri` parameter can be any of the following:
@@ -332,60 +292,74 @@ class Session(object):
 
         """
 
-        return self.map_type(uri, store, *classes)
+        return self.map_type(uri, store=store, classes=classes)
 
-    def map_instance(self, concept, subject, store = None, classes = [],
-                     block_auto_load = False, context = None):
-        """Create a `instance` of the `class` specified by `uri` and `classes`
+    def map_instance(self, concept, subject, store=None, classes=None,
+                     block_auto_load=False, context=None):
+        """Create an `instance` of the `class` specified by `uri` and `classes`
         to be inherited, see `map_type` for more information. """
 
-        if not type(subject) in [URIRef, BNode]:
-            subject = URIRef(unicode(subject))
+        classes = classes if isinstance(classes, (tuple, set, list)) else []
+
+        if not isinstance(subject, (URIRef, BNode)):
+            subject = URIRef(str(subject))
 
         if not store:
             store = self.default_store_key
 
         if not (isinstance(concept, type) and issubclass(concept, Resource)):
-            concept = self.map_type(concept, store, *classes)
-            
-        return concept(subject, block_auto_load = block_auto_load,
-                       context = context)
+            concept = self.map_type(concept, store=store, classes=classes)
 
-    def get_resource(self, subject, uri = None, store = None, graph = None,
-                     block_auto_load = False, context = None, *classes):
+        return concept(subject, block_auto_load=block_auto_load, context=context)
+
+    def get_resource(self, subject, concept=None, store=None, graph=None,
+                     block_auto_load=False, context=None, classes=None):
         """ Same as `map_type` but `set` the resource from the `graph`. """
 
+        classes = classes if isinstance(classes, (tuple, set, list)) else []
+
         if not isinstance(subject, URIRef):
-            subject = URIRef(unicode(subject))
+            subject = URIRef(str(subject))
 
-        if uri is None:
-            uri = Resource.concept(subject)
+        if concept is None:
+            concept = Resource.concept(subject)
 
-        resource = self.map_instance(uri, subject, store, classes,
-                                     block_auto_load = block_auto_load,
-                                     context = context)
+        resource = self.map_instance(concept, subject, store=store, classes=classes,
+                                     block_auto_load=block_auto_load,
+                                     context=context)
 
         if graph:
             resource.set(graph)
 
         return resource
 
-    def load_resource(self, uri, subject, store = None, data = None,
-                      file = None, location = None, format = None, *classes):
-        """ Create a `instance` of the `class` specified by `uri`.
+    def load_resource(self, uri, subject, store=None, data=None,
+                      file=None, location=None, format=None, classes=None):
+        """ Create an `instance` of the `class` specified by `uri`, while
+        `subject` is the subject of the new resource instance.
 
-        Also set the internal properties according to the ones by the specified
-        source.
+        The other parameters: `data`, `file`, `location` and `format` are identical
+        in role to the parameters in :func:`surf.resource.Resource.load_from_source`.
+
+        The `classes` parameter represents the list of base classes of this resource,
+        and is passed further to :func:`surf.session.Session.map_type`
+
+        The internal properties are set according to the ones specified by the source.
 
         """
+        classes = classes if isinstance(classes, (tuple, set, list)) else []
 
-        resource = self.map_type(uri, store, *classes)(subject)
-        resource.load_from_source(data = data, file = file,
-                                  location = location, format = format)
-        return resource
+        ResourceClass = self.map_type(uri, store=store, classes=classes)
+        if ResourceClass:
+            resource = ResourceClass(subject)
+            resource.load_from_source(data=data, file=file,
+                                      location=location, format=format)
+            return resource
+        return None
 
     def commit(self):
-        """ Commit all the changes, update all the `dirty` `resources`. """
+        """ Commits all changes. In essence the method updates all the `dirty`
+        registered `resources`. """
 
         # Copy set into list because it will shrink as we go through it
         for resource in list(Resource.get_dirty_instances()):

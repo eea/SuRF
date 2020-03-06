@@ -33,23 +33,22 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # -*- coding: utf-8 -*-
-__author__ = 'Cosmin Basca'
-
-import logging
-from plugin import manager
-from plugin.manager import load_plugins, PluginNotFoundException, add_plugin_path, registered_readers, registered_writers
-from plugin.reader import RDFReader
-from plugin.writer import RDFWriter
+from builtins import object
+from surf.log import *
+from surf.plugin.manager import load_plugins, get_reader, get_writer
+from surf.plugin.reader import RDFReader, NoneReader
+from surf.plugin.writer import RDFWriter, NoneWriter
 from surf.query import Query
 from surf.rdf import URIRef
+from surf.util import error_message
 
-__readers__ = manager.__readers__
-__writers__ = manager.__writers__
+__author__ = 'Cosmin Basca'
 
 # A constant to use as context argument when we want to avoid default context.
 # Example: sess.get_resource(uri, Concept, context = surf.NO_CONTEXT),
 # this explicitly says that no context should be used.
 NO_CONTEXT = "no-context"
+
 
 class Store(object):
     """ The `Store` class is comprised of a reader and a writer, getting
@@ -67,41 +66,28 @@ class Store(object):
     default_context = property(lambda self: self.__default_context)
 
     def __init__(self, reader = None, writer = None, *args, **kwargs):
-        self.log = logging.getLogger(self.__class__.__name__)
-        self.log.info('initializing the store')
-        load_plugins()
+        super(Store, self).__init__()
+
+        info('initializing the store')
 
         self.__default_context = None
         if "default_context" in kwargs:
             self.__default_context = URIRef(kwargs["default_context"])
 
         if reader:
-            if reader in __readers__:
-                self.reader = __readers__[reader](*args, **kwargs)
-            elif isinstance(reader, RDFReader):
-                # We've received already configured reader, use it.
-                self.reader = reader
-            else:
-                raise PluginNotFoundException('The <%s> READER plugin was not found' % (reader))
+            self.reader = reader if isinstance(reader, RDFReader) else get_reader(reader, *args, **kwargs)
         else:
-            self.reader = RDFReader(*args, **kwargs)
+            self.reader = NoneReader(*args, **kwargs)
 
         if writer:
-            if writer in __writers__:
-                self.writer = __writers__[writer](self.reader, *args, **kwargs)
-            elif isinstance(writer, RDFWriter):
-                # We've received already configured writer, use it.
-                self.writer = writer
-            else:
-                raise PluginNotFoundException('The <%s> WRITER plugin was not found' % (reader))
+            self.writer = writer if isinstance(writer, RDFWriter) else get_writer(writer, self.reader, *args, **kwargs)
         else:
-            self.writer = RDFWriter(self.reader, *args, **kwargs)
+            self.writer = NoneWriter(self.reader, *args, **kwargs)
 
         if hasattr(self.reader, 'use_subqueries'):
-            self.use_subqueries = property(fget = lambda self: self.reader.use_subqueries)
+            self.use_subqueries = property(fget=lambda self: self.reader.use_subqueries)
 
-        self.log.info('store initialized')
-
+        info('store initialized')
 
     def __add_default_context(self, context):
         """ Return default context if context is None. """
@@ -113,18 +99,6 @@ class Store(object):
 
         return context
 
-    def enable_logging(self, enable):
-        """ Toggle `logging` on or off. """
-
-        level = enable and logging.DEBUG or logging.NOTSET
-        self.log.setLevel(level)
-        self.reader.enable_logging(enable)
-        self.writer.enable_logging(enable)
-
-    def is_enable_logging(self):
-        """ True if `logging` is enabled, False otherwise. """
-        return (self.log.level == logging.DEBUG)
-
     def close(self):
         """ Close the `store`.
 
@@ -133,21 +107,17 @@ class Store(object):
         and :func:`surf.plugin.reader.RDFReader.close` methods.
 
         """
-
         try:
             self.reader.close()
-            self.log.debug('reader closed successfully')
-        except Exception, e:
-            self.log.exception("Error on closing the reader")
+            debug('reader closed successfully')
+        except Exception as e:
+            error("Error on closing the reader: %s", error_message(e))
+
         try:
             self.writer.close()
-            self.log.debug('writer closed successfully')
-        except Exception, e:
-            self.log.exception("Error on closing the writer")
-
-    #---------------------------------------------------------------------------
-    # the reader interface
-    #---------------------------------------------------------------------------
+            debug('writer closed successfully')
+        except Exception as e:
+            error("Error on closing the writer: %s", error_message(e))
 
     def get(self, resource, attribute, direct):
         """ :func:`surf.plugin.reader.RDFReader.get` method. """
@@ -181,10 +151,6 @@ class Store(object):
         params["context"] = self.__add_default_context(params.get("context"))
         return self.reader.get_by(params)
 
-    #---------------------------------------------------------------------------
-    # the query reader interface
-    #---------------------------------------------------------------------------
-
     def execute(self, query):
         """see :meth:`surf.plugin.query_reader.RDFQueryReader.execute` method. """
 
@@ -196,13 +162,9 @@ class Store(object):
     def execute_sparql(self, sparql_query, format = 'JSON'):
         """see :meth:`surf.plugin.query_reader.RDFQueryReader.execute_sparql` method. """
 
-        if hasattr(self.reader, 'execute_sparql') and type(sparql_query) in [str, unicode]:
+        if hasattr(self.reader, 'execute_sparql') and isinstance(sparql_query, str):
             return self.reader.execute_sparql(sparql_query, format = format)
         return None
-
-    #---------------------------------------------------------------------------
-    # the writer interface
-    #---------------------------------------------------------------------------
 
     def clear(self, context = None):
         """ See :func:`surf.plugin.writer.RDFWriter.clear` method. """
@@ -236,7 +198,6 @@ class Store(object):
 
         for resource in resources:
             resource.dirty = False
-
 
     def size(self):
         """ See :func:`surf.plugin.writer.RDFWriter.size` method. """
@@ -272,3 +233,6 @@ class Store(object):
 
         context = self.__add_default_context(context)
         return self.writer.load_triples(context=context, **kwargs)
+
+    def __len__(self):
+        return self.size()
