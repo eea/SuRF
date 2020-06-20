@@ -37,6 +37,7 @@ setup(
     ],
     install_requires=[
           'setuptools',
+          'SPARQLWrapper',
           # -*- Extra requirements: -*-
           'rdflib >= 2.4.2',
     ]
