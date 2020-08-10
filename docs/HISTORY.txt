@@ -1,8 +1,8 @@
 Changelog
 =========
 
-3.0.beta1 - (unreleased)
------------------------
+3.0.beta1 - (2020-08-10)
+------------------------
 * python3 compatibility [dumitval]
 
 2.2 - (2016-05-04)
