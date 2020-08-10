@@ -2,7 +2,7 @@ Status
 ======
 
 .. image:: https://travis-ci.org/cosminbasca/surfrdf.svg?branch=master
-:target: https://travis-ci.org/cosminbasca/surfrdf
+  :target: https://travis-ci.org/cosminbasca/surfrdf
 
 
 Description
@@ -19,7 +19,7 @@ Documentation
 You can read the latest documentation online at: http://surf-rdf.readthedocs.io/en/latest/
 When building from source, you can build your own documentation by following these steps:
 
-.. code:: sh
+.. code::
 
     $ cd docs
     $ pip install -r requirements.txt
@@ -30,7 +30,7 @@ Install
 
 Install SuRF:
 
-.. code:: sh
+.. code::
 
     $ pip install --upgrade surf
 
@@ -48,7 +48,7 @@ Example
 
 The example below shows how to query a resource using the rdflib in-memory backend:
 
-.. code:: python
+.. code::
 
     >>> from surf import *
     >>> store = Store(reader='rdflib',
@@ -70,7 +70,7 @@ Testing
 
 *SuRF* uses *tox* and *py.test* for testing:
 
-.. code:: sh
+.. code::
 
     $ # test over multiple python versions with tox
     $ tox
