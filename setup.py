@@ -24,21 +24,22 @@ setup(
     url='http://github.com/eea/SuRF',
     license='MPL',
     packages=find_packages(exclude=['surf.test']),
+    zip_safe=False,
     entry_points="""
       # -*- Entry points: -*-
       [z3c.autoinclude.plugin]
       target = plone
       """,
     classifiers=[
-      'Environment :: Console',
-      'Intended Audience :: Developers',
-      "Programming Language :: Python",
-      'Topic :: Software Development :: Libraries :: Python Modules',
+        'Environment :: Console',
+        'Intended Audience :: Developers',
+        "Programming Language :: Python",
+        'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     install_requires=[
-          'setuptools',
-          'SPARQLWrapper',
-          # -*- Extra requirements: -*-
-          'rdflib >= 2.4.2',
+        'setuptools',
+        'SPARQLWrapper',
+        # -*- Extra requirements: -*-
+        'rdflib >= 2.4.2',
     ]
 )
