@@ -1,5 +1,7 @@
 global-exclude *pyc
 global-exclude *~
 global-exclude *.un~
-
+graft docs
+graft examples
+graft plugins
 global-include *.mo
